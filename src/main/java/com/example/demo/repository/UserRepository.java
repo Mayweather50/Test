@@ -15,12 +15,11 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
 
     // Найти пользователя по email
     Optional<User> findByEmail(String email);
-    User findByUsername(String username);
+    Optional<User> findByUsername(String username);
 
 
     // Проверка на существование пользователя с определенным email
     boolean existsByEmail(String email);
-    User getCurrentUser();
 
     // Найти всех пользователей с определённой ролью (с пагинацией)
     //@Query("SELECT u FROM User u WHERE u.role = :role")

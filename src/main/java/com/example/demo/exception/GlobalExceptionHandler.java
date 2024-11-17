@@ -57,10 +57,7 @@ public class GlobalExceptionHandler {
     }
 
     // Общая обработка исключений для других типов ошибок
-    @ExceptionHandler(value = Exception.class)
-    public ResponseEntity<ErrorResponseBody> generalExceptionHandler(Exception ex, WebRequest webRequest) {
-        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, ex, webRequest);
-    }
+
 
     // Вспомогательный метод для формирования ответа с ошибкой
     private ResponseEntity<ErrorResponseBody> buildResponse(HttpStatus httpStatus, Exception ex, WebRequest webRequest) {

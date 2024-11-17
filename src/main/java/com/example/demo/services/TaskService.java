@@ -7,6 +7,7 @@ import com.example.demo.enums.*;
 import com.example.demo.exception.*;
 import com.example.demo.mapper.*;
 import com.example.demo.repository.*;
+import com.example.demo.security.*;
 import jakarta.validation.ValidationException;
 import lombok.*;
 import org.springframework.data.domain.*;
@@ -27,6 +28,7 @@ public class TaskService {
     private final TaskRepository taskRepository;
     private final UserRepository userRepository;
     private final TaskMapper taskMapper;
+    private final SecurityService securityService;
 
     @Transactional(readOnly = true)
     public Page<TaskResponseDTO> findAll(Pageable pageable) {
@@ -95,14 +97,14 @@ public class TaskService {
                 .orElseThrow(() -> new ResourceNotFoundException("Task not found"));
     }
     public List<TaskResponseDTO> getCurrentUserTasks() {
-        User currentUser = userRepository.getCurrentUser();
+        User currentUser = securityService.getCurrentUser();
         List<Task> tasks = taskRepository.findByAssigneeId(currentUser.getId(), Pageable.unpaged()).getContent();
         return tasks.stream().map(taskMapper::toDto).toList();
     }
 
     @Transactional
     public TaskResponseDTO create(TaskCreateDTO dto) {
-        User currentUser = userRepository.getCurrentUser();
+        User currentUser = securityService.getCurrentUser();
         Task task = taskMapper.toEntity(dto);
         task.setAuthor(currentUser);
 
@@ -123,7 +125,7 @@ public class TaskService {
         Task task = taskRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Task not found"));
 
-        User currentUser = userRepository.getCurrentUser();
+        User currentUser = securityService.getCurrentUser();
         if (!currentUser.getRole().equals(Role.ROLE_ADMIN) &&
                 !task.getAuthor().getId().equals(currentUser.getId()) &&
                 !task.getAssignee().getId().equals(currentUser.getId())) {
@@ -146,7 +148,7 @@ public class TaskService {
         Task task = taskRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Task not found"));
 
-        User currentUser = userRepository.getCurrentUser();
+        User currentUser = securityService.getCurrentUser();
         if (!currentUser.getRole().equals(Role.ROLE_ADMIN) &&
                 !task.getAuthor().getId().equals(currentUser.getId())) {
             throw new ValidationException("You don't have permission to delete this task");
