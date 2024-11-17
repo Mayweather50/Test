@@ -8,14 +8,17 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CommentCreateDTO {
+
     @NotBlank(message = "Content is required")
     @Size(max = 1000, message = "Content cannot exceed 1000 characters")
     private String content;
 
-    @NotBlank(message = "Author is required")
-    private User author;
-
-    @NotNull(message = "Task ID is required")
+    private Long authorId;
     private Long taskId;
+
+    public CommentCreateDTO(String content) {
+        this.content = content;
+    }
 }
+
 

@@ -11,7 +11,7 @@ public class ValidationUtils {
     }
 
     public static void validatePassword(String password) {
-        if (password == null || password.length() < 6) {
+        if (password == null || password.length() < 4) {
             throw new ValidationException("Password must be at least 6 characters long");
         }
     }

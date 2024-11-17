@@ -14,6 +14,7 @@ public interface TaskRepository extends JpaRepository<Task, Long>, JpaSpecificat
 
     // Найти задачи, созданные определенным автором с пагинацией
     Page<Task> findByAuthorId(Long authorId, Pageable pageable);
+    Optional<Task> findByCommentsId(Long commentId);
 
     // Найти задачи, назначенные определенному исполнителю с пагинацией
     Page<Task> findByAssigneeId(Long assigneeId, Pageable pageable);

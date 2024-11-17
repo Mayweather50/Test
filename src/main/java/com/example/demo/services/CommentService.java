@@ -1,7 +1,9 @@
 package com.example.demo.services;
 
 import com.example.demo.dto.comment.*;
+import com.example.demo.dto.user.*;
 import com.example.demo.entity.*;
+import com.example.demo.enums.*;
 import com.example.demo.exception.*;
 import com.example.demo.mapper.*;
 import com.example.demo.repository.*;
@@ -12,6 +14,7 @@ import org.springframework.security.access.*;
 import org.springframework.stereotype.*;
 import org.springframework.transaction.annotation.*;
 
+import java.time.*;
 import java.util.*;
 import java.util.stream.*;
 
@@ -24,6 +27,9 @@ public class CommentService {
     private final TaskRepository taskRepository;
     private final UserService userService;
     private final CommentMapper commentMapper;
+    private final UserMapper userMapper;
+    private final SecurityService securityService;
+
 
     public CommentResponseDTO createComment(CommentCreateDTO dto) {
         log.info("Creating new comment for task with id: {}", dto.getTaskId());
@@ -81,4 +87,36 @@ public class CommentService {
 
         commentRepository.delete(comment);
     }
+
+    @Transactional
+    public CommentResponseDTO addCommentToTask(Long taskId, Long authorId, CommentCreateDTO dto) {
+        User currentUser = securityService.getCurrentUser();
+        if (!currentUser.getRole().equals(Role.ROLE_ADMIN)) {
+            throw new ValidationException("Only administrators can add comments to tasks");
+        }
+
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new ResourceNotFoundException("Task not found with id: " + taskId));
+
+        UserResponseDTO userResponseDTO = userService.getUser(authorId);
+        if (userResponseDTO == null) {
+            throw new ResourceNotFoundException("User not found with id: " + authorId);
+        }
+
+        User author = userMapper.toEntity(userResponseDTO);
+
+
+        Comment comment = new Comment();
+        comment.setContent(dto.getContent());
+        comment.setAuthor(author);
+        comment.setTask(task);
+        comment.setCreatedAt(LocalDateTime.now());
+        comment.setUpdatedAt(LocalDateTime.now());
+
+        comment = commentRepository.save(comment);
+
+        return commentMapper.toDTO(comment);
+    }
+
+
 }

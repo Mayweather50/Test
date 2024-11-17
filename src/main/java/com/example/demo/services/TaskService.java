@@ -1,5 +1,6 @@
 package com.example.demo.services;
 
+import com.example.demo.dto.comment.*;
 import com.example.demo.dto.task.*;
 import com.example.demo.entity.*;
 import com.example.demo.entity.User;
@@ -10,6 +11,7 @@ import com.example.demo.repository.*;
 import com.example.demo.security.*;
 import jakarta.validation.ValidationException;
 import lombok.*;
+import lombok.extern.slf4j.*;
 import org.springframework.data.domain.*;
 import org.springframework.data.jpa.domain.*;
 import org.springframework.security.core.*;
@@ -19,16 +21,20 @@ import org.springframework.stereotype.*;
 import org.springframework.transaction.annotation.*;
 import org.springframework.util.*;
 
+import java.time.*;
 import java.util.*;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class TaskService {
 
     private final TaskRepository taskRepository;
     private final UserRepository userRepository;
     private final TaskMapper taskMapper;
     private final SecurityService securityService;
+    private final CommentRepository commentRepository;
+
 
     @Transactional(readOnly = true)
     public Page<TaskResponseDTO> findAll(Pageable pageable) {
@@ -89,6 +95,14 @@ public class TaskService {
 
         return Sort.by(orders);
     }
+    @Transactional
+    public TaskResponseDTO getTaskForComment(Long commentId) {
+        log.info("Fetching task for comment with id: {}", commentId);
+        Task task = taskRepository.findByCommentsId(commentId)
+                .orElseThrow(() -> new CommentNotFoundException("Task not found for comment id: " + commentId));
+        return taskMapper.toDto(task);
+    }
+
 
     @Transactional(readOnly = true)
     public TaskResponseDTO findById(Long id) {
@@ -119,6 +133,78 @@ public class TaskService {
         return taskMapper.toDto(taskRepository.save(task));
     }
 
+    @Transactional
+    public TaskResponseDTO manageTaskAsAdmin(Long taskId, TaskUpdateDTO dto, CommentCreateDTO commentDto) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new ResourceNotFoundException("Task not found with id: " + taskId));
+
+        if (dto.getStatus() != null) {
+            task.setStatus(dto.getStatus());
+        }
+
+        if (dto.getPriority() != null) {
+            task.setPriority(dto.getPriority());
+        }
+
+        if (dto.getAssigneeId() != null) {
+            User assignee = userRepository.findById(dto.getAssigneeId())
+                    .orElseThrow(() ->
+                            new ResourceNotFoundException("Assignee not found with id: "
+                                    + dto.getAssigneeId()));
+            task.setAssignee(assignee);
+        }
+
+        if (commentDto != null) {
+            User author = userRepository.findById(commentDto.getAuthorId())
+                    .orElseThrow(() ->
+                            new ResourceNotFoundException("Author not found with id: "
+                                    + commentDto.getAuthorId()));
+
+            Comment comment = new Comment();
+            comment.setTask(task);
+            comment.setAuthor(author);
+            comment.setContent(commentDto.getContent());
+            comment.setCreatedAt(LocalDateTime.now());
+            comment.setUpdatedAt(LocalDateTime.now());
+
+            commentRepository.save(comment);
+        }
+
+        return taskMapper.toDto(taskRepository.save(task));
+    }
+
+
+    @Transactional
+    public TaskResponseDTO manageTaskAsUser(Long taskId, TaskUpdateDTO dto, CommentCreateDTO commentDto) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new ResourceNotFoundException("Task not found with id: " + taskId));
+
+        User currentUser = securityService.getCurrentUser();
+
+        if (!task.getAssignee().getId().equals(currentUser.getId())) {
+            throw new ValidationException("You are not allowed to manage this task");
+        }
+
+        if (dto.getStatus() != null) {
+            task.setStatus(dto.getStatus());
+        }
+
+
+        if (commentDto != null && commentDto.getContent() != null) {
+            Comment comment = new Comment();
+            comment.setTask(task);
+            comment.setAuthor(currentUser);
+            comment.setContent(commentDto.getContent());
+            comment.setCreatedAt(LocalDateTime.now());
+            comment.setUpdatedAt(LocalDateTime.now());
+
+            commentRepository.save(comment);
+        }
+
+        return taskMapper.toDto(taskRepository.save(task));
+    }
+
+
 
     @Transactional
     public TaskResponseDTO update(Long id, TaskUpdateDTO dto) {
@@ -135,13 +221,24 @@ public class TaskService {
         taskMapper.updateTaskFromDto(dto, task);
         return taskMapper.toDto(taskRepository.save(task));
     }
-    public TaskResponseDTO updateTaskStatus(Long id, TaskStatus status) {
-        Task task = taskRepository.findById(id)
-                .orElseThrow(() -> new TaskNotFoundException("Task not found with id: " + id));
+    @Transactional
+    public TaskResponseDTO updateTaskStatus(Long taskId, TaskStatus status) {
+        User currentUser = securityService.getCurrentUser();
+
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new TaskNotFoundException("Task not found with id: " + taskId));
+
+        if (!currentUser.getRole().equals(Role.ROLE_ADMIN) &&
+                (task.getAssignee() == null || !task.getAssignee().getId().equals(currentUser.getId()))) {
+            throw new ValidationException("You don't have permission to update the status of this task");
+        }
+
         task.setStatus(status);
         Task updatedTask = taskRepository.save(task);
+
         return taskMapper.toDto(updatedTask);
     }
+
 
     @Transactional
     public void delete(Long id) {
@@ -170,6 +267,9 @@ public class TaskService {
 
         return taskMapper.toDto(savedTask);
     }
+
+
+
 
     @Transactional(readOnly = true)
     public Page<TaskResponseDTO> getTasksWithFilters(TaskFilterDTO filters, Pageable pageable) {

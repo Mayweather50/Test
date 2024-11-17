@@ -9,16 +9,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.*;
 
 @SpringBootTest
-@EnableAutoConfiguration(exclude = LiquibaseAutoConfiguration.class)
 class DemoApplicationTests {
-	@MockBean
-	private UserService userService;
-	@MockBean
-	private TaskService taskService;
-	@MockBean
-	private CommentService commentService;
-	@MockBean
-	private NotificationService notificationService;
+
 	@Test
 	void contextLoads() {
 	}
